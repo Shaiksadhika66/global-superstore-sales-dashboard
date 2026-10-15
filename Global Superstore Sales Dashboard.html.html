@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Global Superstore Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#1b2433;--muted:#6b7686;--line:#e3e8f0;--accent:#2563eb;--pos:#16a34a;--neg:#dc2626;--c1:#2563eb;--c2:#f59e0b;--c3:#10b981;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1520;--card:#18212f;--text:#e8edf5;--muted:#93a0b4;--line:#27344a;--accent:#60a5fa;--pos:#4ade80;--neg:#f87171;--c1:#60a5fa;--c2:#fbbf24;--c3:#34d399;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1520;--card:#18212f;--text:#e8edf5;--muted:#93a0b4;--line:#27344a;--accent:#60a5fa;--pos:#4ade80;--neg:#f87171;--c1:#60a5fa;--c2:#fbbf24;--c3:#34d399;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 32px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px}
+h1{font-size:22px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.filters label{display:flex;flex-direction:column;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);gap:4px}
+select,button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:130px}
+button{cursor:pointer;min-width:0}button:hover{border-color:var(--accent)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;border-top:3px solid var(--accent)}
+.kpi span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.kpi b{display:block;font-size:24px;margin-top:4px}.kpi small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.card h2{font-size:15px;margin:0 0 2px}.card p{margin:0 0 10px;color:var(--muted);font-size:12px}
+.ch{position:relative;height:290px}
+.row{display:flex;justify-content:space-between;align-items:start;gap:8px}
+.tog button{padding:4px 10px;min-width:0;font-size:12px}.tog button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.insight{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg);font-size:12px;color:var(--muted)}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-size:11px;text-transform:uppercase}
+td.n,th.n{text-align:right}.badge{display:inline-block;min-width:24px;text-align:center;border-radius:6px;background:var(--accent);color:#fff;font-size:12px;padding:1px 6px}
+.bar{height:6px;border-radius:3px;background:var(--accent);opacity:.7}
+.note{margin-top:16px;color:var(--muted);font-size:12px}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div><h1>Global Superstore Sales Dashboard</h1><div class="sub">Sales, profit, discount and product performance · 2023–2025</div></div></header>
+<div class="filters">
+<label>Year<select id="fy"></select></label>
+<label>Country<select id="fc"></select></label>
+<label>Category<select id="fk"></select></label>
+<button id="reset">Reset</button>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="grid">
+<div class="card"><div class="row"><div><h2>Sales trend by month</h2><p id="tp">Monthly sales, one line per year</p></div>
+<div class="tog"><button id="bm" class="on">Monthly</button> <button id="by">YTD</button></div></div>
+<div class="ch"><canvas id="trend"></canvas></div><div class="insight" id="seas"></div></div>
+<div class="card"><h2>Discount vs. profit by sub-category</h2><p>Each point = sub-category at a discount level</p>
+<div class="ch"><canvas id="scat"></canvas></div><div class="insight" id="out"></div></div>
+<div class="card"><h2>Profit waterfall by category</h2><p id="wp">Contribution of each category to total profit</p>
+<div class="ch"><canvas id="wf"></canvas></div></div>
+<div class="card"><h2>Top 10 products by sales</h2><p>Ranked with RANKX-style dense ranking (ties share a rank)</p>
+<div class="scroll"><table id="tbl"></table></div></div>
+</div>
+<div class="note">Sample data: the uploaded PDF contained assignment answers but no dataset, so this dashboard runs on generated Global Superstore–style records. Swap the <code>DATA</code> generator for your real rows to use it with actual figures.</div>
+</div>
+<script>
+// ---------- sample data (seeded) ----------
+let s=42;const rnd=()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const CATS={Technology:{Phones:[320,.22],Accessories:[60,.28],Copiers:[900,.3],Machines:[450,.08]},
+Furniture:{Chairs:[260,.14],Tables:[420,.0],Bookcases:[300,.08],Furnishings:[70,.2]},
+"Office Supplies":{Binders:[25,.18],Paper:[22,.4],Storage:[110,.12],Art:[18,.3]}};
+const COUNTRIES=["United States","India","Australia","Germany","United Kingdom","Brazil","France"];
+const DISC=[0,0,0,0,.1,.1,.2,.2,.2,.3,.4,.5,.6,.7,.8];
+const SEAS=[.7,.65,.85,.8,.85,.9,.8,.85,1.2,1.0,1.5,1.7];
+const P=[];for(const k in CATS)for(const sc in CATS[k])for(const m of["Alpha","Prime","Select"])P.push({k,sc,name:sc+" "+m,base:CATS[k][sc][0]*(m=="Prime"?1.3:m=="Select"?.8:1),mg:CATS[k][sc][1]});
+const DATA=[];let oid=1000;
+for(let y=2023;y<=2025;y++)for(let m=0;m<12;m++){const n=Math.round(40*SEAS[m]*(1+(y-2023)*.18));
+for(let i=0;i<n;i++){const id="ORD-"+(oid++),ctry=COUNTRIES[Math.floor(rnd()**1.4*7)],lines=1+Math.floor(rnd()*3);
+for(let l=0;l<lines;l++){const p=P[Math.floor(rnd()*P.length)],q=1+Math.floor(rnd()*4),d=DISC[Math.floor(rnd()*DISC.length)];
+const sales=p.base*q*(1-d)*(.9+rnd()*.2),profit=sales*(p.mg+.05-d*.75+(rnd()-.5)*.1);
+DATA.push({id,y,m,ctry,k:p.k,sc:p.sc,prod:p.name,sales,profit,d})}}}
+// ---------- helpers ----------
+const $=id=>document.getElementById(id),MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const money=v=>(v<0?"-":"")+"$"+(Math.abs(v)>=1e6?(Math.abs(v)/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?(Math.abs(v)/1e3).toFixed(1)+"K":Math.abs(v).toFixed(0));
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const sum=(a,f)=>a.reduce((t,r)=>t+f(r),0);
+const opts=(el,list)=>el.innerHTML=list.map(v=>`<option>${v}</option>`).join("");
+opts($("fy"),["All","2023","2024","2025"]);opts($("fc"),["All",...COUNTRIES]);opts($("fk"),["All",...Object.keys(CATS)]);
+let mode="m",charts={};
+const filt=(ignoreYear)=>DATA.filter(r=>(ignoreYear||$("fy").value=="All"||r.y==$("fy").value)&&($("fc").value=="All"||r.ctry==$("fc").value)&&($("fk").value=="All"||r.k==$("fk").value));
+function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg)}
+function base(){const g=css("--line"),t=css("--muted");Chart.defaults.color=t;Chart.defaults.font.family="Inter,system-ui,sans-serif";return{responsive:true,maintainAspectRatio:false,grid:g}}
+// ---------- render ----------
+function render(){
+const d=filt(),b=base(),yrSel=$("fy").value,yr=yrSel=="All"?2025:+yrSel;
+const tS=sum(d,r=>r.sales),tP=sum(d,r=>r.profit),orders=new Set(d.map(r=>r.id)).size;
+const ytd=sum(d.filter(r=>r.y==yr),r=>r.sales);
+$("kpis").innerHTML=[["Total Sales",money(tS),""],["Total Profit",money(tP),""],["Profit Margin",(tS?tP/tS*100:0).toFixed(1)+"%",""],
+["Orders",orders.toLocaleString(),""],["Avg Order Value",money(orders?tS/orders:0),"Sales ÷ distinct orders"],["YTD Sales",money(ytd),"Year "+yr]]
+.map(k=>`<div class="kpi"><span>${k[0]}</span><b>${k[1]}</b><small>${k[2]}</small></div>`).join("");
+// trend
+const years=yrSel=="All"?[2023,2024,2025]:[yr],cols=[css("--c1"),css("--c2"),css("--c3")];
+const sets=years.map((y,i)=>{const mo=Array(12).fill(0);d.filter(r=>r.y==y).forEach(r=>mo[r.m]+=r.sales);
+let v=mo;if(mode=="y"){let c=0;v=mo.map(x=>c+=x)}
+return{label:String(y),data:v,borderColor:cols[(yrSel=="All"?i:0)],backgroundColor:cols[(yrSel=="All"?i:0)],tension:.3,pointRadius:2,borderWidth:2}});
+$("tp").textContent=mode=="y"?"Cumulative year-to-date sales":"Monthly sales, one line per year";
+mk("trend",{type:"line",data:{labels:MON,datasets:sets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+": "+money(c.parsed.y)}}},scales:{y:{ticks:{callback:money},grid:{color:b.grid}},x:{grid:{display:false}}}}});
+const avg=Array(12).fill(0);d.forEach(r=>avg[r.m]+=r.sales);const top=avg.map((v,i)=>[v,i]).sort((a,c)=>c[0]-a[0]).slice(0,3).map(x=>MON[x[1]]);
+$("seas").textContent=d.length?"Seasonality: sales consistently peak in "+top.join(", ")+" and dip in early-year months.":"No data for this selection.";
+// scatter
+const pts={};d.forEach(r=>{const key=r.sc+"|"+r.d;(pts[key]=pts[key]||{x:r.d,y:0,sc:r.sc,k:r.k}).y+=r.profit});
+const cc={Technology:css("--c1"),Furniture:css("--c2"),"Office Supplies":css("--c3")};
+const ds=Object.keys(CATS).map(k=>({label:k,backgroundColor:cc[k],pointRadius:5,data:Object.values(pts).filter(p=>p.k==k)}));
+mk("scat",{type:"scatter",data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,
+plugins:{tooltip:{callbacks:{label:c=>`${c.raw.sc}: ${(c.raw.x*100)|0}% discount, profit ${money(c.raw.y)}`}}},
+scales:{x:{title:{display:true,text:"Discount"},ticks:{callback:v=>(v*100)+"%"},grid:{color:b.grid}},y:{title:{display:true,text:"Profit"},ticks:{callback:money},grid:{color:b.grid}}}}});
+const bad=Object.values(pts).filter(p=>p.x>=.3&&p.y<0);
+$("out").textContent=bad.length?`${bad.length} sub-category/discount points at ≥30% discount are loss-making, e.g. ${[...new Set(bad.map(p=>p.sc))].slice(0,3).join(", ")}.`:"No loss-making points at ≥30% discount in this selection.";
+// waterfall
+const cats=Object.keys(CATS),vals=cats.map(k=>sum(d.filter(r=>r.k==k),r=>r.profit));let run=0;
+const fl=[],colr=[];vals.forEach(v=>{fl.push([run,run+v]);colr.push(v>=0?css("--pos"):css("--neg"));run+=v});fl.push([0,run]);colr.push(css("--accent"));
+$("wp").textContent="Category profit contribution"+($("fc").value=="All"?" (all countries)":" in "+$("fc").value);
+mk("wf",{type:"bar",data:{labels:[...cats,"Total"],datasets:[{data:fl,backgroundColor:colr,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,
+plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const v=c.raw[1]-c.raw[0];return (c.dataIndex==3?"Total ":"Change ")+money(c.dataIndex==3?c.raw[1]:v)}}}},
+scales:{y:{ticks:{callback:money},grid:{color:b.grid}},x:{grid:{display:false}}}}});
+// table
+const pm={};d.forEach(r=>(pm[r.prod]=pm[r.prod]||{k:r.k,s:0,p:0}),0);d.forEach(r=>{pm[r.prod].s+=r.sales;pm[r.prod].p+=r.profit});
+const arr=Object.entries(pm).sort((a,c)=>c[1].s-a[1].s);let rk=0,last=null;arr.forEach(a=>{if(a[1].s!==last){rk++;last=a[1].s}a.rank=rk});
+const mx=arr.length?arr[0][1].s:1;
+$("tbl").innerHTML="<tr><th>Rank</th><th>Product</th><th class='n'>Sales</th><th class='n'>Profit</th><th style='width:20%'></th></tr>"+
+arr.slice(0,10).map(a=>`<tr><td><span class="badge">${a.rank}</span></td><td>${a[0]}</td><td class="n">${money(a[1].s)}</td><td class="n" style="color:${a[1].p<0?css("--neg"):css("--pos")}">${money(a[1].p)}</td><td><div class="bar" style="width:${a[1].s/mx*100}%"></div></td></tr>`).join("");
+}
+["fy","fc","fk"].forEach(i=>$(i).onchange=render);
+$("reset").onclick=()=>{["fy","fc","fk"].forEach(i=>$(i).selectedIndex=0);render()};
+$("bm").onclick=()=>{mode="m";$("bm").classList.add("on");$("by").classList.remove("on");render()};
+$("by").onclick=()=>{mode="y";$("by").classList.add("on");$("bm").classList.remove("on");render()};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",render);
+render();
+</script>
+</body>
+</html>
